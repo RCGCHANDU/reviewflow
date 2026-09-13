@@ -1,0 +1,85 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "reviewflow"
+version = "0.1.0"
+description = "Deterministic multi-agent review -> synthesis -> controlled-edit -> adversarial-review -> verification framework built on the OpenAI Agents SDK."
+requires-python = ">=3.11"
+dependencies = [
+    "openai-agents>=0.22.2,<0.23",
+    "pydantic>=2.9",
+]
+
+[project.optional-dependencies]
+# The web application layer. The engine itself needs none of these, so they are an extra:
+# a deployment that only uses the CLI installs `reviewflow`, not the server.
+app = [
+    "fastapi>=0.115",
+    "uvicorn[standard]>=0.32",
+    "python-multipart>=0.0.12",
+]
+dev = [
+    "pytest>=8.0",
+    "pytest-asyncio>=0.24",
+    "ruff>=0.6",
+    "mypy>=1.11",
+    # httpx backs fastapi.testclient, which the application tests use.
+    "httpx>=0.27",
+]
+
+[project.scripts]
+reviewflow = "reviewflow.cli:main"
+reviewflow-app = "reviewflow_app.__main__:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/reviewflow", "src/reviewflow_app"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_mode = "auto"
+addopts = "-q"
+markers = [
+    "integration: exercises the real OpenAI API and consumes credits (deselected by default)",
+]
+filterwarnings = ["ignore::DeprecationWarning"]
+
+[tool.ruff]
+line-length = 110
+target-version = "py311"
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "ASYNC", "C4", "SIM", "RUF"]
+ignore = [
+    "E501",  # line length: enforced for code by the formatter; prose may run long
+    # UP042 wants enum.StrEnum. The explicit (str, Enum) form is deliberate: these
+    # enums are embedded in the JSON schemas used for structured outputs.
+    "UP042",
+    # S101-style asserts in tests are the assertions; in src they mark invariants that a
+    # failure would be a bug rather than a runtime condition.
+    "S101",
+]
+
+[tool.ruff.lint.flake8-bugbear]
+# FastAPI dependency injection is performed *by* calling Depends()/File()/Query() in the
+# signature default. Treating those calls as immutable is the documented exception; without
+# it every route handler in the API layer trips B008.
+extend-immutable-calls = [
+    "fastapi.Depends",
+    "fastapi.Query",
+    "fastapi.File",
+    "fastapi.Form",
+    "fastapi.Body",
+    "fastapi.Header",
+]
+
+[tool.mypy]
+python_version = "3.11"
+packages = ["reviewflow", "reviewflow_app"]
+mypy_path = "src"
+warn_unused_ignores = true
+warn_redundant_casts = true
+disallow_untyped_defs = true
+ignore_missing_imports = true

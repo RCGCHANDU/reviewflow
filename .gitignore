@@ -1,0 +1,51 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+*.egg-info/
+.mypy_cache/
+.ruff_cache/
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Runtime artifacts: the audit ledger and derived evidence are run output, not source
+artifacts/
+examples/_run/
+
+# Live-run scratch workspaces (a real run edits a copy of the example material)
+examples/_live/
+examples/_live_codex/
+
+# Provider probes write their reports into artifacts/ (already ignored above)
+# and nothing else.
+
+# Node / frontend
+node_modules/
+frontend/dist/
+frontend/coverage/
+*.tsbuildinfo
+.vite/
+npm-debug.log*
+
+# Secrets: credential stores are read in place, never copied into the repo.
+# These live outside the repo (in $HOME), and are listed anyway so a stray copy
+# in a scratch directory can never be staged.
+.env
+.env.*
+!/.env.example
+*.bak
+!examples/**/*.bak
+auth.json
+**/auth.json
+*.pem
+*.key
+
+# Editor / OS noise
+.DS_Store
+Thumbs.db
+desktop.ini
+.idea/
+.vscode/
+*.swp
+*~
