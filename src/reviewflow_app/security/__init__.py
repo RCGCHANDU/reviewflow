@@ -1,0 +1,1 @@
+"""Path and upload safety."""
