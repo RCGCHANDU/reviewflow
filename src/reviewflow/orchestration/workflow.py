@@ -945,6 +945,20 @@ class ReviewWorkflow:
                     sha_after=sha256_bytes(after_bytes),
                 )
                 if not result.ok or result.output is None:
+                    # The editor may have mutated the target before returning a usable
+                    # structured result. Never retry from an unvalidated document: that
+                    # compounds a partial/invalid edit across attempts and can make every
+                    # later revision fail the accepted-issue gate. Restore the last
+                    # validated bytes before retrying or returning the failure.
+                    if after_bytes != before_bytes:
+                        target.write_bytes(before_bytes)
+                        after_bytes = before_bytes
+                        after_text = before_text
+                        diff = with_disk_hashes(
+                            compute_diff(relative, before_text, after_text),
+                            sha_before=diff_sha_before,
+                            sha_after=sha256_bytes(after_bytes),
+                        )
                     problems = [result.error or "the editor did not return a usable result"]
                     self._record(
                         ctx,
@@ -955,9 +969,6 @@ class ReviewWorkflow:
                         errors=problems,
                     )
                     if result.failure_kind in {FailureKind.TRANSIENT, FailureKind.TIMEOUT} and attempts < 2:
-                        before_bytes = after_bytes
-                        before_text = after_text
-                        diff_sha_before = sha256_bytes(before_bytes)
                         continue
                     return None, diff, after_text
                 edit_result = result.output
@@ -977,6 +988,12 @@ class ReviewWorkflow:
                     return edit_result, diff, after_text
                 problems = outcome.problems
                 ctx.disclosures.extend(outcome.notes)
+                # Validation failure is also a failed write boundary. Restore the last
+                # validated document before retrying; otherwise a malformed report can
+                # leave its mutation on disk and the next round starts from corrupted
+                # content, causing persistent edit-completeness blocks.
+                if after_bytes != before_bytes:
+                    target.write_bytes(before_bytes)
                 self._record(
                     ctx,
                     EventType.FAILURE,
@@ -986,9 +1003,7 @@ class ReviewWorkflow:
                     errors=problems,
                     retry_count=attempts,
                 )
-                before_bytes = after_bytes
-                before_text = after_text
-                diff_sha_before = sha256_bytes(before_bytes)
+                # Retry from the same validated bytes, not from the rejected mutation.
             return (
                 edit_result,
                 with_disk_hashes(

@@ -653,3 +653,33 @@ def _transition_pairs(run: ScriptedRun) -> list[tuple[str, str]]:
         for event in run.events
         if event.event_type.value == "transition" and event.transition_from and event.transition_to
     ]
+
+
+@pytest.mark.asyncio
+async def test_invalid_editor_write_is_rolled_back_before_retry(workspace) -> None:
+    """A rejected editor report must not poison the next edit attempt or revision."""
+    scripts = four_reviewer_scripts()
+    scripts["controlled_editor"] = [
+        apply_edit(path="manuscript.md", old_text=UNSUPPORTED_CLAIM, new_text="MALFORMED PARTIAL MUTATION", issue_ids=["not-an-accepted-id"]),
+        edit_result("manuscript.md", changes=[change("c1", issue_ids=["evidence_auditor:ev-1"], before=UNSUPPORTED_CLAIM, after=HEDGED_CLAIM)]),
+        apply_edit(path="manuscript.md", old_text=UNSUPPORTED_CLAIM, new_text=HEDGED_CLAIM, issue_ids=["evidence_auditor:ev-1"]),
+        edit_result("manuscript.md", changes=[change("c1", issue_ids=["evidence_auditor:ev-1"], before=UNSUPPORTED_CLAIM, after=HEDGED_CLAIM)]),
+    ]
+    run = await run_scripted(scripts, workspace=workspace, max_revision_rounds=0)
+    assert run.result.status is not WorkflowStatus.BLOCKED
+    assert "MALFORMED PARTIAL MUTATION" not in workspace.text()
+    assert HEDGED_CLAIM in workspace.text()
+
+
+@pytest.mark.asyncio
+async def test_invalid_editor_write_is_rolled_back_on_terminal_failure(workspace) -> None:
+    """Even when the editor exhausts retries, its invalid mutation cannot leak to disk."""
+    scripts = four_reviewer_scripts()
+    scripts["controlled_editor"] = [
+        apply_edit(path="manuscript.md", old_text=UNSUPPORTED_CLAIM, new_text="INVALID EDIT MUST NOT PERSIST", issue_ids=["not-an-accepted-id"]),
+        edit_result("manuscript.md", changes=[change("c1", issue_ids=[], before=UNSUPPORTED_CLAIM, after="INVALID EDIT MUST NOT PERSIST")]),
+    ]
+    run = await run_scripted(scripts, workspace=workspace, max_revision_rounds=0)
+    assert run.result.status in {WorkflowStatus.BLOCKED, WorkflowStatus.FAILED}
+    assert "INVALID EDIT MUST NOT PERSIST" not in workspace.text()
+    assert UNSUPPORTED_CLAIM in workspace.text()
