@@ -416,13 +416,11 @@ export function RunDetail() {
                 <StageTimeline stages={stages} events={stream.events} />
               </Panel>
               <Panel
-                title="Workflow events"
+                title="Workflow activity"
                 flush
                 actions={<span className="tiny faint">{stream.events.length} events{stream.endReason ? ` · ${stream.endReason}` : ''}</span>}
               >
-                <div style={{ padding: 10 }}>
-                  <EventLog events={stream.events} />
-                </div>
+                <EventLog events={stream.events} />
               </Panel>
             </div>
           ) : null}
