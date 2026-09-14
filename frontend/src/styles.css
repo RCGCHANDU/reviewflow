@@ -298,6 +298,13 @@ button:disabled, .button[aria-disabled='true'] { opacity: 0.5; cursor: not-allow
 /* -------------------------------------------------------------- timeline --- */
 .timeline { list-style: none; margin: 0; padding: 0; }
 .timeline li { display: grid; grid-template-columns: 22px minmax(0, 1fr) auto; gap: var(--space-3); padding: var(--space-2) 0; position: relative; align-items: start; }
+.timeline li.stage-item { transition: background var(--dur-med) var(--ease-out), border-color var(--dur-med) var(--ease-out), transform var(--dur-med) var(--ease-out); }
+.timeline li.stage-item.running { margin-inline: calc(var(--space-2) * -1); padding-inline: var(--space-2); border-radius: var(--radius-md); background: var(--info-weak); }
+.timeline li.stage-item.running .marker { animation: stage-pulse 1.6s ease-in-out infinite; }
+.timeline li.stage-item.completed .stage-name::after { content: 'resolved'; margin-left: var(--space-2); color: var(--ok); font-size: var(--fs-xs); font-weight: 520; }
+.timeline li.stage-item.skipped .stage-detail { color: var(--text-faint); }
+@keyframes stage-pulse { 50% { transform: scale(1.16); opacity: .68; } }
+@media (prefers-reduced-motion: reduce) { .timeline li.stage-item.running .marker { animation: none; } }
 .timeline li + li { border-top: 1px solid var(--border); }
 .timeline .marker { font-size: var(--fs-sm); color: var(--text-faint); text-align: center; line-height: 1.6; }
 .timeline li.completed .marker { color: var(--ok); }

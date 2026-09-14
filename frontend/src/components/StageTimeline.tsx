@@ -64,7 +64,12 @@ export function StageTimeline({
         const isReview = stage.stage === 'parallel_review'
         const showAgents = showReviewers && isReview && agents.length > 0
         return (
-          <li key={stage.stage} className={stage.state}>
+          <li
+            key={stage.stage}
+            className={`stage-item ${stage.state}`}
+            data-state={stage.state}
+            aria-current={stage.state === 'running' ? 'step' : undefined}
+          >
             <span className="marker" aria-hidden="true">
               {STATE_MARK[stage.state] ?? '·'}
             </span>
