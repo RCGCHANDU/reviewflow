@@ -151,7 +151,7 @@ export interface IssueMap {
 
 export interface EditResult {
   target?: string
-  changes?: { issue_ids?: string[]; location?: string; description?: string; before?: string; after?: string }[]
+  changes?: { issue_ids?: string[]; location?: string; description?: string; rationale?: string; kind?: string; before?: string; after?: string }[]
   unresolved_items?: string[]
   verification_requested?: string[]
   no_change_reason?: string
@@ -211,8 +211,15 @@ export interface VerificationReport {
 
 export interface FinalReport {
   executive_summary?: string
-  status?: string
+  accepted_issues_summary?: string[]
+  rejected_issues_summary?: string[]
+  reviewer_disagreements?: { issue_id?: string; reviewers?: string[]; nature?: string; resolution?: string }[]
+  changes_applied?: { issue_id?: string; change_id?: string; summary?: string }[]
+  unresolved_issues?: { issue_id?: string; severity?: string; summary?: string }[]
+  verification_summary?: { passed?: number; failed?: number; failing_checks?: string[] } | string
   disclosures?: string[]
+  claimed_status?: string
+  status?: string
   recommendations?: string[]
 }
 

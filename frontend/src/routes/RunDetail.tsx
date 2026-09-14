@@ -1,5 +1,6 @@
-import { useMemo, useState } from 'react'
-import { Link, useParams } from 'react-router-dom'
+import { useMemo } from 'react'
+import type { KeyboardEvent } from 'react'
+import { Link, useParams, useSearchParams } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
 import { api } from '../api/client'
@@ -16,6 +17,8 @@ import { RUN_STATUS_MEANING, formatDuration, formatNumber, formatTimestamp, isTe
 
 type Tab = 'timeline' | 'reviewers' | 'synthesis' | 'edit' | 'adversarial' | 'verification' | 'result'
 
+const TAB_KEYS: Tab[] = ['timeline', 'reviewers', 'synthesis', 'edit', 'adversarial', 'verification', 'result']
+
 /**
  * Live workflow run.
  *
@@ -31,7 +34,17 @@ export function RunDetail() {
   const { runId } = useParams<{ runId: string }>()
   const id = runId as string
   const queryClient = useQueryClient()
-  const [tab, setTab] = useState<Tab>('timeline')
+  // The active tab lives in the URL, so a section can be linked, shared and survives a
+  // refresh. Before this, every cross-reference ("see the Result tab") was dead text and
+  // a reload silently reset the reader to the process log.
+  const [searchParams, setSearchParams] = useSearchParams()
+  const requestedTab = searchParams.get('tab')
+  const tab: Tab = TAB_KEYS.includes((requestedTab ?? '') as Tab) ? (requestedTab as Tab) : 'timeline'
+  const setTab = (next: Tab) => {
+    const params = new URLSearchParams(searchParams)
+    params.set('tab', next)
+    setSearchParams(params, { replace: true })
+  }
 
   const runQuery = useQuery({
     queryKey: ['run', id],
@@ -130,9 +143,26 @@ export function RunDetail() {
     { key: 'result', label: 'Result' },
   ]
 
+  // One sourced count for the decision strip; severity is the engine's own, not inferred.
+  const criticalUnresolved = (data?.unresolved_issues ?? []).filter((item) => item.severity === 'critical').length
+
+  const onTabKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
+    const order = tabs.map((item) => item.key)
+    const current = order.indexOf(tab)
+    if (current < 0) return
+    let next: Tab | null = null
+    if (event.key === 'ArrowRight') next = order[(current + 1) % order.length]
+    else if (event.key === 'ArrowLeft') next = order[(current - 1 + order.length) % order.length]
+    else if (event.key === 'Home') next = order[0]
+    else if (event.key === 'End') next = order[order.length - 1]
+    if (!next) return
+    event.preventDefault()
+    setTab(next)
+    document.getElementById(`tab-${next}`)?.focus()
+  }
+
   return (
-    <>
-      <div className="breadcrumb">
+    <><div className="breadcrumb">
         <Link to="/runs">Runs</Link> / <span className="mono">{run.id}</span>
       </div>
 
@@ -181,7 +211,11 @@ export function RunDetail() {
         </div>
       </div>
 
-      <Notice tone={run.status === 'succeeded' ? 'ok' : run.status === 'failed' ? 'bad' : 'warn'} title={RUN_STATUS_MEANING[run.status]}>
+      <Notice
+        tone={run.status === 'succeeded' ? 'ok' : run.status === 'failed' ? 'bad' : 'warn'}
+        title={RUN_STATUS_MEANING[run.status]}
+        role={terminal ? 'status' : undefined}
+      >
         {data?.status_explanation ?? run.failure_reason ?? ''}
       </Notice>
 
@@ -195,6 +229,28 @@ export function RunDetail() {
           {String(cancel.error)}
         </Notice>
       ) : null}
+
+      {/* Decision-first: the facts that decide what to do next belong above the evidence,
+          and every count is labelled so "10 reviewer findings" and "23 unresolved at
+          completion" cannot read as two contradictory totals for the same thing. */}
+      <div className="decision-strip">
+        <span className="mono">
+          <strong>{verificationResults.length - failedChecks.length}</strong>/{verificationResults.length} checks
+          passed
+        </span>
+        {failedChecks.length > 0 ? (
+          <span className="decision-fail">failing: {failedChecks.map((check) => check.check).join(', ')}</span>
+        ) : null}
+        <span>
+          <strong className="mono">{unresolvedCount}</strong> unresolved at completion
+          {criticalUnresolved > 0 ? (
+            <span className="decision-fail"> · {criticalUnresolved} critical</span>
+          ) : null}
+        </span>
+        <button type="button" className="button primary" onClick={() => setTab('result')}>
+          See the decision →
+        </button>
+      </div>
 
       <div className="grid cols-3" style={{ marginBottom: 16 }}>
         <Panel title="Progress">
@@ -273,7 +329,10 @@ export function RunDetail() {
               </div>
               {failedChecks.length > 0 ? (
                 <div className="small" style={{ marginTop: 8, color: 'var(--bad)' }}>
-                  Failing: {failedChecks.map((check) => check.check).join(', ')}
+                  Failing: {failedChecks.map((check) => check.check).join(', ')}{' '}
+                  <button type="button" className="linklike" onClick={() => setTab('verification')}>
+                    Show the checks
+                  </button>
                 </div>
               ) : (
                 <div className="small muted" style={{ marginTop: 8 }}>
@@ -286,7 +345,10 @@ export function RunDetail() {
               {unresolvedCount > 0 ? (
                 <div className="small" style={{ marginTop: 6, color: 'var(--warn, var(--text))' }}>
                   {unresolvedCount} accepted {unresolvedCount === 1 ? 'issue' : 'issues'} still
-                  unresolved — see the Result tab.
+                  unresolved.{' '}
+                  <button type="button" className="linklike" onClick={() => setTab('result')}>
+                    Open the unresolved list
+                  </button>
                 </div>
               ) : null}
             </>
@@ -294,11 +356,15 @@ export function RunDetail() {
         </Panel>
       </div>
 
-      <div className="tabs" role="tablist">
+      <div className="tabs" role="tablist" aria-label="Run sections" onKeyDown={onTabKeyDown}>
         {tabs.map((item) => (
           <button
             key={item.key}
+            id={`tab-${item.key}`}
             role="tab"
+            aria-controls={`panel-${item.key}`}
+            tabIndex={tab === item.key ? 0 : -1}
+            aria-label={item.count ? `${item.label}, ${item.count} ${item.count === 1 ? 'item' : 'items'}` : item.label}
             aria-selected={tab === item.key}
             onClick={() => setTab(item.key)}
             type="button"
@@ -309,6 +375,9 @@ export function RunDetail() {
         ))}
       </div>
 
+      {/* The panel the tabs control: aria-controls on each tab points at this id, so a
+          reader that follows a tab always lands on the content it names. */}
+      <div role="tabpanel" id={`panel-${tab}`} aria-labelledby={`tab-${tab}`} tabIndex={-1}>
       {inspection.isLoading && !data ? (
         <Loading label="Loading run evidence…" />
       ) : (
@@ -509,7 +578,7 @@ export function RunDetail() {
                             </Badge>
                           ))}
                         </div>
-                        <p className="small">{change.description}</p>
+                        <p className="small">{change.rationale ?? change.description ?? change.kind ?? ''}</p>
                         {change.after ? <blockquote>{change.after}</blockquote> : null}
                       </article>
                     ))}
@@ -826,6 +895,7 @@ export function RunDetail() {
           ) : null}
         </>
       )}
+      </div>
     </>
   )
 }

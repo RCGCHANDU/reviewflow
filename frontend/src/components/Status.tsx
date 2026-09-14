@@ -43,7 +43,7 @@ export function Badge({ tone, children, pulse = false }: { tone: Tone; children:
 
 export function RunStatusBadge({ status }: { status: RunStatus }) {
   return (
-    <span title={RUN_STATUS_MEANING[status]}>
+    <span title={RUN_STATUS_MEANING[status]} data-status={status}>
       <Badge tone={RUN_STATUS_TONE[status]} pulse={status === 'running'}>
         {RUN_STATUS_LABEL[status]}
       </Badge>
@@ -92,14 +92,16 @@ export function Loading({ label = 'Loading…' }: { label?: string }) {
 export function Notice({
   tone = 'neutral',
   title,
+  role,
   children,
 }: {
   tone?: 'neutral' | 'ok' | 'warn' | 'bad'
   title?: string
+  role?: 'status' | 'alert'
   children?: ReactNode
 }) {
   return (
-    <div className={`notice ${tone === 'neutral' ? '' : tone}`} role={tone === 'bad' ? 'alert' : undefined}>
+    <div className={`notice ${tone === 'neutral' ? '' : tone}`} role={role ?? (tone === 'bad' ? 'alert' : undefined)}>
       <div className="notice-body">
         {title ? <strong>{title}</strong> : null}
         {children}

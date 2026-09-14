@@ -640,11 +640,33 @@ class RunService:
                 }
                 states[event.stage].state = outcome_states.get(outcome, "completed")
                 states[event.stage].finished_at = event.timestamp
-                states[event.stage].detail = {
-                    key: value
-                    for key, value in event.payload.items()
-                    if key in {"decision", "status", "reason", "round"} and value is not None
-                }
+                # The engine nests the meaningful values under `detail` and names the
+                # round `round_index`; projecting top-level decision/status/reason as
+                # before produced {} for every stage of every run.
+                raw_detail = event.payload.get("detail")
+                detail: dict[str, object] = {}
+                if isinstance(raw_detail, dict):
+                    for key, value in raw_detail.items():
+                        if value is None or value == [] or value == {}:
+                            continue
+                        if isinstance(value, (str, int, float, bool)):
+                            detail[key] = value
+                        elif isinstance(value, list) and all(
+                            isinstance(v, (str, int, float, bool)) for v in value
+                        ):
+                            detail[key] = (
+                                ", ".join(str(v) for v in value) if len(value) <= 4 else f"{len(value)} items"
+                            )
+                for key in ("decision", "status", "reason"):
+                    if event.payload.get(key) is not None:
+                        detail[key] = event.payload[key]
+                if event.payload.get("round_index"):
+                    detail["round"] = event.payload["round_index"]
+                if event.payload.get("issue_ids"):
+                    detail["issued"] = len(event.payload["issue_ids"])
+                if event.payload.get("errors"):
+                    detail["errors"] = len(event.payload["errors"])
+                states[event.stage].detail = detail
             elif event.type == "stage.transition":
                 target = str((event.payload.get("transition") or {}).get("to") or "")
                 if target == "revise":

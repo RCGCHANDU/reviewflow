@@ -15,7 +15,7 @@
   --border-strong: #b9c0cb;
   --text: #16191f;
   --text-muted: #5b6472;
-  --text-faint: #7c8697;
+  --text-faint: #616a7c;  /* raised to clear 4.5:1 on surface and sunken (was #7c8697 at 3.22:1) */
   --accent: #2f5bd7;
   --accent-weak: #e8eefc;
   --ok: #157347;
@@ -925,3 +925,136 @@ th.num {
     font-weight: 600;
   }
 }
+
+
+/* ============================================================
+   DESIGN TOKENS - terminal-state language (added by redesign P4)
+   Five terminal states must be unmistakable AND distinguishable
+   without colour: each carries its own hue + its own glyph.
+   ============================================================ */
+:root {
+  --status-succeeded: #1a7f37;
+  --status-blocked:   #b45309;
+  --status-degraded:  #7c3aed;
+  --status-failed:    #b91c1c;
+  --status-cancelled: #57534e;
+  --status-running:   #0b6bcb;
+  --status-pending:   #78716c;
+  --status-surface-succeeded: #e8f5ec;
+  --status-surface-blocked:   #fdf1e3;
+  --status-surface-degraded:  #f1ebfe;
+  --status-surface-failed:    #fdeaea;
+  --status-surface-cancelled: #f0efed;
+  --focus-ring: #0b6bcb;
+  --radius-sm: 4px; --radius-md: 8px;
+  --space-1: 4px;  --space-2: 8px;  --space-3: 12px;
+  --space-4: 16px; --space-5: 24px; --space-6: 32px;
+  --font-mono: ui-monospace, SFMono-Regular, "Cascadia Mono", Consolas, monospace;
+  --dur-fast: 120ms; --dur-med: 220ms;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --status-succeeded: #3fb950;
+    --status-blocked:   #f59e0b;
+    --status-degraded:  #a78bfa;
+    --status-failed:    #f87171;
+    --status-cancelled: #a8a29e;
+    --status-surface-succeeded: #10231a;
+    --status-surface-blocked:   #2a1f0c;
+    --status-surface-degraded:  #1e1633;
+    --status-surface-failed:    #2a1414;
+    --status-surface-cancelled: #1f1e1d;
+  }
+}
+/* terminal states: own colour, own glyph, own surface (glyph = colour-independent) */
+[data-status] .badge::before { font-weight: 700; margin-right: 5px; font-size: 0.9em; }
+[data-status="succeeded"] .badge { color: var(--status-succeeded); background: var(--status-surface-succeeded); box-shadow: inset 0 0 0 1px var(--status-succeeded); }
+[data-status="succeeded"] .badge::before { content: "✓"; }
+[data-status="blocked"] .badge { color: var(--status-blocked); background: var(--status-surface-blocked); box-shadow: inset 0 0 0 1px var(--status-blocked); }
+[data-status="blocked"] .badge::before { content: "■"; }
+[data-status="degraded"] .badge { color: var(--status-degraded); background: var(--status-surface-degraded); box-shadow: inset 0 0 0 1px var(--status-degraded); }
+[data-status="degraded"] .badge::before { content: "◐"; }
+[data-status="failed"] .badge { color: var(--status-failed); background: var(--status-surface-failed); box-shadow: inset 0 0 0 1px var(--status-failed); }
+[data-status="failed"] .badge::before { content: "✕"; }
+[data-status="cancelled"] .badge { color: var(--status-cancelled); background: var(--status-surface-cancelled); box-shadow: inset 0 0 0 1px var(--status-cancelled); }
+[data-status="cancelled"] .badge::before { content: "⊘"; }
+[data-status="running"] .badge::before { content: none; }
+/* ids, models, hashes: one monospace voice */
+.mono, .event-seq, .model-tag { font-family: var(--font-mono); }
+/* responsive: remove the shell's fixed-width floor */
+.tabs { flex-wrap: wrap; }
+.topbar { flex-wrap: wrap; }
+.topbar-right { flex-wrap: wrap; }
+@media (max-width: 720px) {
+  .topbar { align-items: flex-start; }
+  .topbar nav { flex-wrap: wrap; }
+  .tabs { gap: var(--space-1); }
+  .tabs [role="tab"] { flex: 0 1 auto; }
+  .panel-body { padding: var(--space-3); }
+  /* keep table layout; scroll the container rather than dismantling the table */
+  .table-wrap { display: block; overflow-x: auto; max-width: 100%; }
+  .panel-body { overflow-x: auto; }
+}
+@media (max-width: 720px) {
+  /* event stream: 62px+150px+130px fixed columns were the last fixed-width floor */
+  .event-row { grid-template-columns: 40px minmax(0, 1fr); gap: 2px 8px; }
+  .event-row > *:not(.seq) { grid-column: 2; min-width: 0; }
+  .event-row .detail, .event-row .subject, .event-row .stage { overflow-wrap: anywhere; }
+}
+@media (max-width: 420px) {
+  .app { padding: var(--space-2); }
+  .topbar { gap: var(--space-2); }
+}
+
+@media (max-width: 720px) {
+  /* px-based minmax floors cannot shrink below the px value; force single column */
+  .grid.cols-2 { grid-template-columns: minmax(0, 1fr) !important; }
+  .grid.cols-3 { grid-template-columns: minmax(0, 1fr) !important; }
+}
+
+@media (max-width: 720px) {
+  /* measured 320px offenders: contain instead of overflow */
+  div.stage-meta { max-width: 100%; min-width: 0; overflow-wrap: anywhere; }
+  div { max-width: 100%; min-width: 0; overflow-wrap: anywhere; }
+  div.faint { max-width: 100%; min-width: 0; overflow-wrap: anywhere; }
+}
+
+/* --- from the A4 / A6 audits --- */
+.sr-only {
+  position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+  overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0;
+}
+/* CTAs render as <a class="button primary">, so the element-qualified rule never applied */
+:root { --on-accent: #ffffff; }
+@media (prefers-color-scheme: dark) { :root { --on-accent: #0b1220; } }
+.button.primary,
+.button.primary:visited {
+  background: var(--accent); color: var(--on-accent); border-color: transparent;
+}
+
+@media (max-width: 720px) {
+  /* A6-01: squeezing a table into 300px wrapped every cell to one character per
+     line (runs-table rows measured 1365px tall). Keep a content-sized table and
+     let its container scroll instead. */
+  table { width: auto; min-width: 100%; }
+  table td, table th { white-space: nowrap; }
+  .panel-body { overflow-x: auto; }
+}
+
+/* --- decision-first strip (A3-01) --- */
+.decision-strip {
+  display: flex; flex-wrap: wrap; align-items: center;
+  gap: 10px 20px;
+  padding: 10px 12px; margin-bottom: 16px;
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--accent);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+}
+.decision-fail { color: var(--bad); }
+.linklike {
+  background: none; border: 0; padding: 0; margin: 0;
+  color: var(--accent); text-decoration: underline; cursor: pointer; font: inherit;
+}
+.linklike:focus-visible { outline: 2px solid var(--focus-ring, var(--accent)); outline-offset: 2px; }
+@media (max-width: 720px) { .decision-strip { gap: 6px 12px; } }

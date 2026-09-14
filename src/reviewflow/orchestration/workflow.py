@@ -1282,12 +1282,15 @@ class ReviewWorkflow:
                         reason=result.error or result.evidence or "check failed",
                     )
                 )
-        for note in findings:
+        for index, note in enumerate(findings, start=1):
             if any(item.summary == note for item in out):
                 continue
+            # Issue identity must be unique per finding. A constant id made every
+            # synthetic open finding indistinguishable in the API payload, and the
+            # same id could be reported once as `major` and once as `critical`.
             out.append(
                 UnresolvedIssue(
-                    issue_id="open-finding",
+                    issue_id=f"open-finding:{index}",
                     summary=note,
                     severity=Severity.MINOR,
                     source="workflow",
