@@ -139,10 +139,10 @@ describe('RunDetail', () => {
     source?.emitRunEvent(4, 'agent.started', { role_key: 'structure_reviewer', model: 'gpt-5.6-luna' }, 'parallel_review')
     source?.emitRunEvent(5, 'agent.completed', { agent_role: 'evidence_auditor', latency_ms: 3200 }, 'parallel_review')
 
-    await waitFor(() => expect(screen.getByText('Evidence Auditor')).toBeInTheDocument())
+    await waitFor(() => expect(screen.getAllByText('Evidence Auditor').length).toBeGreaterThan(0))
     const running = document.querySelectorAll('.timeline .agent-row')
     expect(running.length).toBeGreaterThanOrEqual(2)
-    expect(screen.getByText('Structure Reviewer')).toBeInTheDocument()
+    expect(screen.getAllByText('Structure Reviewer').length).toBeGreaterThan(0)
   })
 
   it('shows a blocked run as blocked, with the failing mandatory check visible', async () => {

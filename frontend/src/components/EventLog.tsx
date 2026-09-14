@@ -124,6 +124,21 @@ export function EventLog({ events, follow: initialFollow = true }: { events: Run
   }, [events, family, query])
 
   const selected = events.find((event) => event.seq === selectedSeq) ?? null
+  const agents = useMemo(() => {
+    const byRole = new Map<string, { role: string; state: 'running' | 'completed' | 'failed' | 'retried'; model?: string; tools: number }>()
+    for (const event of events) {
+      const role = String(event.payload.agent_role ?? event.payload.role_key ?? '')
+      if (!role) continue
+      const current = byRole.get(role) ?? { role, state: 'running' as const, tools: 0 }
+      const model = typeof event.payload.model === 'string' ? event.payload.model : current.model
+      if (event.type === 'agent.started') byRole.set(role, { ...current, state: 'running', model })
+      else if (event.type === 'agent.completed') byRole.set(role, { ...current, state: 'completed', model })
+      else if (event.type === 'agent.failed') byRole.set(role, { ...current, state: 'failed', model })
+      else if (event.type === 'agent.retried') byRole.set(role, { ...current, state: 'retried', model })
+      else if (event.type === 'tool.called') byRole.set(role, { ...current, model, tools: current.tools + 1 })
+    }
+    return [...byRole.values()].sort((a, b) => a.role.localeCompare(b.role))
+  }, [events])
   const familyCounts = useMemo(() => {
     const counts: Record<string, number> = { all: events.length }
     events.forEach((event) => {
@@ -152,6 +167,21 @@ export function EventLog({ events, follow: initialFollow = true }: { events: Run
           <span aria-hidden="true">{follow ? '◉' : '○'}</span> {follow ? 'Following live' : 'Follow paused'}
         </button>
       </div>
+
+      {agents.length > 0 ? (
+        <div className="agent-activity-rail" aria-label="Agent activity">
+          <div className="agent-activity-title"><span>Agent activity</span><span className="tiny faint">Observed from live events · no private reasoning shown</span></div>
+          <div className="agent-activity-grid">
+            {agents.map((agent) => (
+              <div className={`agent-live-card state-${agent.state}`} key={agent.role}>
+                <span className="agent-live-dot" aria-hidden="true" />
+                <span className="agent-live-main"><strong>{titleCase(agent.role)}</strong><span className="tiny faint">{agent.model ?? 'model not reported'}</span></span>
+                <span className="agent-live-state">{titleCase(agent.state)}{agent.tools ? ` · ${agent.tools} tools` : ''}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      ) : null}
 
       <div className="activity-controls">
         <label className="activity-search">
