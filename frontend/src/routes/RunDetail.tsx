@@ -145,6 +145,9 @@ export function RunDetail() {
 
   // One sourced count for the decision strip; severity is the engine's own, not inferred.
   const criticalUnresolved = (data?.unresolved_issues ?? []).filter((item) => item.severity === 'critical').length
+  // Evidence comes from a second request; when it fails the page must say so rather than
+  // render zeroes that read as measured facts (A8-02).
+  const evidenceFailed = inspection.isError || (!inspection.isLoading && !data)
 
   const onTabKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
     const order = tabs.map((item) => item.key)
@@ -229,8 +232,24 @@ export function RunDetail() {
           {String(cancel.error)}
         </Notice>
       ) : null}
+      {rerun.isError ? (
+        // Measured: a failing rerun changed nothing on screen and only logged to the console.
+        <Notice tone="bad" title="Could not start a new run">
+          {String(rerun.error)}
+        </Notice>
+      ) : null}
 
-      {/* Decision-first: the facts that decide what to do next belong above the evidence,
+      {evidenceFailed ? (
+        <Notice tone="bad" title="Could not load this run's evidence">
+          The status above comes from the run record. The reviewer findings, verification results, diff and artifacts
+          could not be fetched, so nothing on this page may be read as a complete account of the run.{' '}
+          <button type="button" className="linklike" onClick={() => void inspection.refetch()}>
+            Try again
+          </button>
+        </Notice>
+      ) : (
+        <>
+          {/* Decision-first: the facts that decide what to do next belong above the evidence,
           and every count is labelled so "10 reviewer findings" and "23 unresolved at
           completion" cannot read as two contradictory totals for the same thing. */}
       <div className="decision-strip">
@@ -367,7 +386,7 @@ export function RunDetail() {
             key={item.key}
             id={`tab-${item.key}`}
             role="tab"
-            aria-controls={`panel-${item.key}`}
+            aria-controls="run-panel"
             tabIndex={tab === item.key ? 0 : -1}
             aria-label={item.count ? `${item.label}, ${item.count} ${item.count === 1 ? 'item' : 'items'}` : item.label}
             aria-selected={tab === item.key}
@@ -375,14 +394,18 @@ export function RunDetail() {
             type="button"
           >
             {item.label}
-            {item.count ? <span className="tab-count">{item.count}</span> : null}
+            {item.count ? (
+              <span className="tab-count" aria-hidden="true">
+                {item.count}
+              </span>
+            ) : null}
           </button>
         ))}
       </div>
 
       {/* The panel the tabs control: aria-controls on each tab points at this id, so a
           reader that follows a tab always lands on the content it names. */}
-      <div role="tabpanel" id={`panel-${tab}`} aria-labelledby={`tab-${tab}`} tabIndex={-1}>
+      <div role="tabpanel" id="run-panel" aria-labelledby={`tab-${tab}`} tabIndex={-1}>
       {inspection.isLoading && !data ? (
         <Loading label="Loading run evidence…" />
       ) : (
@@ -901,6 +924,8 @@ export function RunDetail() {
         </>
       )}
       </div>
+        </>
+      )}
     </>
   )
 }

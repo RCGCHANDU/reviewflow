@@ -3,7 +3,21 @@ import { useQuery } from '@tanstack/react-query'
 
 import { api } from '../api/client'
 
-/** Application shell: navigation plus the operational facts worth always having visible. */
+const NAV = [
+  { to: '/', label: 'Dashboard', end: true },
+  { to: '/new', label: 'New review', end: false },
+  { to: '/runs', label: 'Runs', end: false },
+  { to: '/projects', label: 'Projects', end: false },
+  { to: '/providers', label: 'Providers', end: false },
+]
+
+/**
+ * Application shell.
+ *
+ * A persistent sidebar rather than a top bar: navigation stays put while run evidence
+ * scrolls, and the operational facts worth always seeing (what is running, which
+ * providers are reachable) live where they cannot collide with the workflow content.
+ */
 export function Layout() {
   const health = useQuery({ queryKey: ['health'], queryFn: api.health, refetchInterval: 30_000 })
 
@@ -11,33 +25,34 @@ export function Layout() {
   const providers = health.data?.providers_available ?? []
 
   return (
-    <div className="app">
-      <header className="topbar">
+    <div className="shell">
+      <a className="skip" href="#content">
+        Skip to content
+      </a>
+      <aside className="sidebar">
         <div className="brand">
           Review<span>Flow</span>
         </div>
-        <nav aria-label="Main">
-          <NavLink to="/" end>
-            Dashboard
-          </NavLink>
-          <NavLink to="/runs">Runs</NavLink>
-          <NavLink to="/projects">Projects</NavLink>
-          <NavLink to="/providers">Providers</NavLink>
-          <NavLink to="/new">New review</NavLink>
+        <nav className="side-nav" aria-label="Main">
+          {NAV.map((item) => (
+            <NavLink key={item.to} to={item.to} end={item.end}>
+              {item.label}
+            </NavLink>
+          ))}
         </nav>
-        <div className="topbar-right">
+        <div className="side-foot">
           {running > 0 ? (
             <span className="badge info running">
               <span className="dot" aria-hidden="true" />
               {running} running
             </span>
           ) : null}
-          <span className="tiny" title="Model providers discovered on this machine">
-            {providers.length > 0 ? providers.join(', ') : 'no provider credentials'}
+          <span className="who" title="Model providers discovered on this machine">
+            {providers.length > 0 ? `providers · ${providers.join(', ')}` : 'no provider credentials'}
           </span>
         </div>
-      </header>
-      <main className="content">
+      </aside>
+      <main className="content" id="content" tabIndex={-1}>
         <Outlet />
       </main>
     </div>
