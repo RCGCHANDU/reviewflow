@@ -20,7 +20,6 @@ from __future__ import annotations
 import asyncio
 import hashlib
 import json
-import shutil
 from pathlib import Path
 from typing import Any
 
@@ -43,6 +42,7 @@ from reviewflow_app.persistence.repositories import (
     ProjectRepository,
     RunRepository,
     SourceRepository,
+    new_id,
 )
 from reviewflow_app.schemas import (
     TERMINAL_STATUSES,
@@ -54,7 +54,7 @@ from reviewflow_app.schemas import (
     StageStateName,
     WorkflowRunSummary,
 )
-from reviewflow_app.security.paths import assert_within, sanitize_filename
+from reviewflow_app.security.paths import assert_within, atomic_write_bytes, sanitize_filename
 from reviewflow_app.tracing import install_trace_router
 
 _log = get_logger("app.runs")
@@ -124,18 +124,23 @@ class SourceService:
                 f"({', '.join(self.app_settings.allowed_source_suffixes)})"
             )
 
-        # The id decides the directory; the sanitised name only decides the leaf filename.
-        # Nothing the client sent can move the write outside the project's own directory.
-        source_id_preview = sanitize_filename(f"{project_id}-{safe_name}")
-        directory = self.app_settings.source_dir(project_id, source_id_preview)
+        # The generated id decides the directory and the sanitised name only decides the leaf
+        # filename, so nothing a client sends can move the write outside the project - and,
+        # critically, two uploads of the same name cannot collide. Deriving the directory from
+        # the filename (the previous behaviour) made the second upload overwrite the first
+        # snapshot while both database rows claimed their own path, which broke the immutable
+        # snapshot guarantee the audit trail depends on.
+        source_id = new_id("src")
+        directory = self.app_settings.source_dir(project_id, source_id)
         directory.mkdir(parents=True, exist_ok=True)
         stored = assert_within(directory / safe_name, self.app_settings.projects_dir)
-        stored.write_bytes(data)
+        atomic_write_bytes(stored, data)
 
         record = self.sources.create(
             project_id=project_id,
             filename=safe_name,
             stored_path=str(stored),
+            source_id=source_id,
             content_type=content_type or "application/octet-stream",
             size_bytes=len(data),
             sha256=hashlib.sha256(data).hexdigest(),
@@ -627,6 +632,7 @@ class RunService:
                 outcome = str(event.payload.get("outcome") or "ok")
                 outcome_states: dict[str, StageStateName] = {
                     "ok": "completed",
+                    "degraded": "warning",
                     "warning": "warning",
                     "failed": "failed",
                     "invalid_output": "failed",
@@ -799,8 +805,9 @@ class RunService:
         source = assert_within(workspace / relative, workspace)
         if not source.is_file():
             raise NotFoundError(f"{relative} is not a file in run {run_id}")
-        destination.parent.mkdir(parents=True, exist_ok=True)
-        shutil.copyfile(source, destination)
+        # Atomic for the same reason as source ingest: a partially copied target would be a
+        # corrupt starting artifact for a run.
+        atomic_write_bytes(destination, source.read_bytes())
         return destination
 
     def delete(self, run_id: str) -> None:

@@ -14,6 +14,7 @@ exists so that:
 from __future__ import annotations
 
 import asyncio
+import socket
 import time
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
@@ -349,11 +350,20 @@ class SdkAgentInvoker:
             return FailureKind.TRANSIENT, f"{type(exc).__name__}: {exc}"
         if isinstance(exc, APIStatusError):
             status = getattr(exc, "status_code", 0) or 0
-            if status >= 500 or status == 429:
+            # 408 Request Timeout and 425 Too Early are retryable transport conditions, not
+            # configuration faults: an upstream that timed us out says nothing about whether
+            # the same request would succeed on a retry.
+            if status >= 500 or status in {408, 425, 429}:
                 return FailureKind.TRANSIENT, f"HTTP {status}: {exc}"
             return FailureKind.INFRASTRUCTURE, f"HTTP {status}: {exc}"
         if isinstance(exc, AgentsException):
             return FailureKind.INVALID_OUTPUT, f"{type(exc).__name__}: {exc}"
+        # Connection-level failures are transient. This must be checked before the general
+        # OSError branch below and must NOT swallow all OSErrors: FileNotFoundError and
+        # PermissionError are OSErrors too, and retrying those is exactly the wrong response
+        # to a genuinely unreadable path or a missing key.
+        if isinstance(exc, (ConnectionError, socket.gaierror, socket.timeout)):
+            return FailureKind.TRANSIENT, f"{type(exc).__name__}: {exc}"
         if isinstance(exc, (OSError, ValueError, KeyError)):
             return FailureKind.INFRASTRUCTURE, f"{type(exc).__name__}: {exc}"
         return FailureKind.LOGICAL, f"{type(exc).__name__}: {exc}"

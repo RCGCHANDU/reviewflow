@@ -19,7 +19,11 @@ interface AgentActivity {
 export function reviewerActivity(events: RunEvent[]): AgentActivity[] {
   const byRole = new Map<string, AgentActivity>()
   for (const event of events) {
-    const role = String(event.payload.agent_role ?? '')
+    // The engine's live sink reports `role_key` on agent.started; the ledger's agent_call
+    // event reports `agent_role`. Reading only one of them meant the running state never
+    // appeared in the real application while the unit test (whose fixture used the other
+    // key) passed.
+    const role = String(event.payload.agent_role ?? event.payload.role_key ?? '')
     if (!role) continue
     if (event.type === 'agent.started') {
       byRole.set(role, {

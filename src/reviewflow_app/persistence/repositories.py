@@ -64,8 +64,13 @@ class SourceRepository:
         content_type: str,
         size_bytes: int,
         sha256: str,
+        source_id: str | None = None,
     ) -> dict[str, Any]:
-        source_id = new_id("src")
+        # The caller may supply the id so the storage path can be derived from it *before*
+        # the file is written. Deriving the directory from the filename instead (the original
+        # behaviour) meant two uploads of the same name in one project shared a path, and the
+        # second silently overwrote the first snapshot.
+        source_id = source_id or new_id("src")
         self.db.execute(
             "INSERT INTO sources (id, project_id, filename, stored_path, content_type, size_bytes, sha256, created_at)"
             " VALUES (?, ?, ?, ?, ?, ?, ?, ?)",

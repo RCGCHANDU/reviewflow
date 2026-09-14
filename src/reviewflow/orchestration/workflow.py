@@ -416,10 +416,20 @@ class ReviewWorkflow:
                 failures.append(f"reviewer {role_key} failed: {reason}")
             if not reports:
                 critical_violation = "no reviewer produced a usable report"
+            # A partial reviewer set is not a clean stage. Reporting OK here would let the
+            # ledger (and any UI reading it) claim a complete review when reviewers were
+            # missing, even though the *terminal* status still refuses success via the
+            # coverage gate.
+            if not reports:
+                review_outcome = StageOutcome.FAILED
+            elif failed_reviewers:
+                review_outcome = StageOutcome.DEGRADED
+            else:
+                review_outcome = StageOutcome.OK
             self._stage_end(
                 ctx,
                 Stage.PARALLEL_REVIEW,
-                StageOutcome.OK if reports else StageOutcome.FAILED,
+                review_outcome,
                 detail={"reports": len(reports), "issues": len(corpus), "failed": sorted(failed_reviewers)},
             )
             if not reports:

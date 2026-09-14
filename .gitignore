@@ -49,3 +49,10 @@ desktop.ini
 .vscode/
 *.swp
 *~
+frontend/e2e/results/
+frontend/e2e/report/
+frontend/playwright-report/
+frontend/test-results/
+frontend/e2e/e2e/
+**/test-output/
+.playwright-artifacts/

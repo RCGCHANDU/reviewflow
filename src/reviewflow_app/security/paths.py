@@ -10,7 +10,10 @@ that directory is computed from the run id and is the only root the engine is gr
 
 from __future__ import annotations
 
+import contextlib
+import os
 import re
+import tempfile
 import unicodedata
 from pathlib import Path
 
@@ -62,3 +65,26 @@ def assert_within(path: Path, root: Path) -> Path:
     if resolved != resolved_root and resolved_root not in resolved.parents:
         raise UnsafePathError(f"{resolved} is outside the allowed root {resolved_root}")
     return resolved
+
+
+def atomic_write_bytes(path: Path, data: bytes) -> Path:
+    """Write bytes via a sibling temp file plus ``os.replace``.
+
+    A crash mid-write must not leave a truncated source snapshot or run workspace: the
+    replacement is atomic on the same filesystem, so a reader sees either the old bytes or
+    the complete new bytes. Mirrors the engine's editor write.
+    """
+    target = Path(path)
+    target.parent.mkdir(parents=True, exist_ok=True)
+    descriptor, temp_name = tempfile.mkstemp(dir=str(target.parent), prefix=".tmp-", suffix=target.suffix)
+    try:
+        with os.fdopen(descriptor, "wb") as handle:
+            handle.write(data)
+            handle.flush()
+            os.fsync(handle.fileno())
+        os.replace(temp_name, target)
+    except BaseException:
+        with contextlib.suppress(OSError):
+            os.unlink(temp_name)
+        raise
+    return target

@@ -167,11 +167,25 @@ export interface DiffReview {
   approved?: boolean
 }
 
+/**
+ * One concrete reason the revision should be rejected.
+ *
+ * The engine sends structured findings here, not strings: rendering one directly is a React
+ * error ("objects are not valid as a React child"), which is exactly what happened when this
+ * was typed as `string[]`.
+ */
+export interface AdversarialFinding {
+  description: string
+  location: string
+  evidence: string
+  related_issue_id?: string | null
+}
+
 export interface AdversarialVerdict {
   passed?: boolean
-  critical_issues?: string[]
-  major_issues?: string[]
-  minor_issues?: string[]
+  critical_issues?: AdversarialFinding[]
+  major_issues?: AdversarialFinding[]
+  minor_issues?: AdversarialFinding[]
   rationale?: string
   rejection_reasons?: string[]
 }

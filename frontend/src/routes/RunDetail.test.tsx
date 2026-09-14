@@ -131,8 +131,12 @@ describe('RunDetail', () => {
     // both as running rather than serialising them.
     const source = MockEventSource.latest()
     expect(source).toBeDefined()
-    source?.emitRunEvent(3, 'agent.started', { agent_role: 'evidence_auditor', model: 'gpt-5.6-luna' }, 'parallel_review')
-    source?.emitRunEvent(4, 'agent.started', { agent_role: 'structure_reviewer', model: 'gpt-5.6-luna' }, 'parallel_review')
+    // Payload shapes copied from what the server actually emits: the live sink reports
+    // `role_key` on agent.started, while the ledger's agent_call event reports `agent_role`.
+    // An earlier version of this fixture used `agent_role` for both, which made the mock
+    // agree with the frontend and hid a real defect from the browser run.
+    source?.emitRunEvent(3, 'agent.started', { role_key: 'evidence_auditor', model: 'gpt-5.6-luna' }, 'parallel_review')
+    source?.emitRunEvent(4, 'agent.started', { role_key: 'structure_reviewer', model: 'gpt-5.6-luna' }, 'parallel_review')
     source?.emitRunEvent(5, 'agent.completed', { agent_role: 'evidence_auditor', latency_ms: 3200 }, 'parallel_review')
 
     await waitFor(() => expect(screen.getByText('Evidence Auditor')).toBeInTheDocument())
@@ -202,7 +206,15 @@ describe('RunDetail', () => {
           adversarial: {
             passed: false,
             rationale: 'The conclusion still overstates the result.',
-            critical_issues: ['sufficiency claim remains'],
+            // Structured findings, exactly as the engine sends them.
+            critical_issues: [
+              {
+                description: 'sufficiency claim remains',
+                location: 'manuscript.md, Conclusion',
+                evidence: 'Sparse selection is sufficient for long-video understanding.',
+                related_issue_id: 'ev-2',
+              },
+            ],
             major_issues: [],
             minor_issues: [],
             rejection_reasons: ['unsupported conclusion'],

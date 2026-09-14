@@ -70,7 +70,19 @@ class EditGrant:
             )
 
     def check_issues(self, issue_ids: list[str]) -> None:
-        """Raise when the editor cites an issue id it was not authorised to fix."""
+        """Raise when the edit's issue citations are not authorised by this grant.
+
+        An edit that cites *no* issue while the grant authorises some is rejected too. The
+        grant exists to tie every change to an accepted finding; an empty list satisfied the
+        previous check vacuously, so a caller could obtain an authorised write by citing
+        nothing at all.
+        """
+        if not issue_ids and self.allowed_issue_ids:
+            allowed = ", ".join(sorted(self.allowed_issue_ids))
+            raise GrantError(
+                f"edit cites no issue id; every change must name the accepted issue(s) it "
+                f"addresses (grant authorises: {allowed})"
+            )
         unknown = sorted(set(issue_ids) - set(self.allowed_issue_ids))
         if unknown:
             raise GrantError(f"edit cites issue ids outside the grant: {unknown}")

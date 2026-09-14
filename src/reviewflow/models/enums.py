@@ -163,6 +163,10 @@ class StageOutcome(str, Enum):
     """Recorded outcome of one stage attempt in the audit ledger."""
 
     OK = "ok"
+    #: The stage produced usable output but not everything succeeded (e.g. some reviewers
+    #: failed while others reported). Distinct from OK so the ledger does not claim a clean
+    #: stage, and distinct from FAILED so a degraded-but-usable stage is not overstated.
+    DEGRADED = "degraded"
     SKIPPED = "skipped"
     TIMEOUT = "timeout"
     INVALID_OUTPUT = "invalid_output"

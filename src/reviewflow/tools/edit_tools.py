@@ -50,8 +50,10 @@ def _check_authorisation(
     for glob in context.generated_globs:
         if fnmatch.fnmatch(relative, glob) or fnmatch.fnmatch(target.name, glob):
             raise PathSecurityError(f"{relative} is a generated artifact and must not be edited")
-    if issue_ids:
-        grant.check_issues(issue_ids)
+    # Unconditional: an edit citing nothing is not a check that passes, it is an edit that
+    # has not justified itself. The `if issue_ids:` guard that used to be here skipped the
+    # check entirely for an empty list.
+    grant.check_issues(list(issue_ids or []))
     if target.exists():
         grant.check_hash(sha256_of(target))
     return target, grant

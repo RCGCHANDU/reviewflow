@@ -605,7 +605,16 @@ export function RunDetail() {
                         <p className="small muted">None.</p>
                       ) : (
                         <ul className="small" style={{ margin: 0, paddingLeft: 18 }}>
-                          {items?.map((item, index) => <li key={index}>{item}</li>)}
+                          {items?.map((item, index) => (
+                            <li key={index} style={{ marginBottom: 6 }}>
+                              <div>{item.description}</div>
+                              <div className="faint small mono">{item.location}</div>
+                              <div className="muted small">&ldquo;{item.evidence}&rdquo;</div>
+                              {item.related_issue_id ? (
+                                <div className="faint small">relates to {item.related_issue_id}</div>
+                              ) : null}
+                            </li>
+                          ))}
                         </ul>
                       )}
                     </div>

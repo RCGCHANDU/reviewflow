@@ -44,6 +44,19 @@ describe('reviewerActivity', () => {
     expect(activity.find((item) => item.role === 'rhetorical_analyst')?.state).toBe('completed')
   })
 
+  it('reads the key the live sink emits, not only the ledger key', () => {
+    // Regression: the running state never appeared in the real application because
+    // agent.started carries `role_key` (live sink) while agent_call carries `agent_role`
+    // (ledger). The browser E2E run caught it; this pins it.
+    const agents = reviewerActivity([
+      event(1, 'agent.started', { role_key: 'evidence_auditor', model: 'gpt-5.6-luna' }),
+      event(2, 'agent.started', { role_key: 'technical_reviewer', model: 'gpt-5.6-luna' }),
+    ])
+    const byRole = new Map(agents.map((agent) => [agent.role, agent]))
+    expect(byRole.get('evidence_auditor')?.state).toBe('running')
+    expect(byRole.get('technical_reviewer')?.state).toBe('running')
+  })
+
   it('ignores events that do not identify an agent', () => {
     const activity = reviewerActivity([
       event(1, 'stage.started', {}),
