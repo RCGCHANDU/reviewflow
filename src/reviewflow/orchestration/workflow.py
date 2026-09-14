@@ -203,7 +203,16 @@ def evaluate_completion(
         blockers = len(verdict.critical_issues) + len(verdict.major_issues)
         if round_index < max_rounds + 1:
             return GateDecision(Stage.REVISE, None, f"adversarial verdict rejected the revision ({blockers} blocking findings)")
-        return GateDecision(Stage.BLOCKED, WorkflowStatus.BLOCKED, "adversarial reviewer rejected every attempt")
+        # This branch sees only the verdict for the round it is called in, so it cannot
+        # know how many attempts were rejected. Measured on a real 6-round run: the
+        # adversarial reviewer PASSED round 5 and rejected round 6, and the run was still
+        # reported as "rejected every attempt" — a universal claim the evidence refuted.
+        return GateDecision(
+            Stage.BLOCKED,
+            WorkflowStatus.BLOCKED,
+            f"adversarial verdict rejected the revision in the final round "
+            f"({blockers} blocking finding{'' if blockers == 1 else 's'})",
+        )
 
     if unresolved_blocking:
         ids = ", ".join(item.issue_id for item in unresolved_blocking)
