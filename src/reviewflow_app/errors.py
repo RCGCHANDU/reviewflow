@@ -59,6 +59,17 @@ class ConflictError(AppError):
     code = "conflict"
 
 
+class InvalidConfigurationError(AppError):
+    """The requested configuration cannot be executed as given.
+
+    Raised *before* a run exists, so the user gets the reason instead of a run that fails
+    later. The payload carries a machine-readable ``code`` per failed check.
+    """
+
+    status_code = 409
+    code = "invalid_configuration"
+
+
 class ProviderUnavailableError(AppError):
     """No credential exists for the provider a run needs.
 

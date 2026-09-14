@@ -33,6 +33,7 @@ from reviewflow_app.schemas import (
     ProviderInfo,
     ProvidersResponse,
     RoleInfo,
+    RunConfigSnapshot,
 )
 
 _log = get_logger("app.providers")
@@ -295,13 +296,20 @@ class ProviderService:
             note=str(report.get("note", "")),
         )
 
-    def validate_model_selection(self, selection: str, *, provider: str | None = None) -> PreflightCheck:
+    def validate_model_selection(self, selection: str, *, provider: str | None = None,
+        allow_unlisted: bool = False,
+    ) -> PreflightCheck:
         """Check one ``provider:model`` choice against what the backend can serve.
 
         ``blocking`` describes whether *this check failing* would stop a run, not whether it
-        passed: a model the user deliberately selected must be servable (blocking), while a
-        model the application simply has not catalogued is a warning (advisory), because an
-        OpenAI-compatible gateway accepts ids this application has never seen.
+        passed.
+
+        Default-deny: a model the catalogue does not list is a **blocking** failure, because a
+        run that executes with an unusable model spends real money and then attributes its
+        output to a model that never ran. The escape hatch is explicit - a caller who really
+        wants to try an unlisted id passes ``allow_unlisted=True``, which records the exception
+        in the run snapshot instead of hiding it. An API-compatible gateway does accept ids
+        this application has never seen, so the opt-in exists; it is simply not the default.
 
         Format is validated before availability: a malformed reference is a different failure
         from a model the account cannot use, and conflating them sends the user to the wrong
@@ -322,21 +330,85 @@ class ProviderService:
         router = self._router(provider if provider_name == "auto" else provider_name)
         if router is None:
             return PreflightCheck(
-                name="model_selection",
+                name="provider",
                 ok=False,
+                code="PROVIDER_UNAVAILABLE",
                 detail=f"provider '{provider_name}' has no usable credential",
             )
         known = {model.id for model in self.models(provider=provider_name)}
         if model_id not in known:
-            # Not blocking: the router accepts any model id on an API-compatible gateway,
-            # so an unlisted id may still work. It is worth telling the user it is unlisted.
+            if allow_unlisted:
+                # Explicit, auditable opt-in (persisted in the run snapshot).
+                return PreflightCheck(
+                    name="model_selection",
+                    ok=True,
+                    blocking=False,
+                    code="MODEL_UNLISTED_ALLOWED",
+                    detail=(
+                        f"'{model_id}' is not listed by {provider_name}; proceeding because "
+                        "unlisted models were explicitly allowed for this run"
+                    ),
+                )
             return PreflightCheck(
                 name="model_selection",
-                ok=True,
-                blocking=False,
-                detail=f"'{model_id}' is not in the models reported by {provider_name}; it may still work",
+                ok=False,
+                blocking=True,
+                code="MODEL_UNAVAILABLE",
+                detail=(
+                    f"The selected model is not available for this provider. '{model_id}' is not "
+                    f"listed by {provider_name}. Choose a model from the Providers page, or enable "
+                    "'allow unlisted models' to try it anyway."
+                ),
             )
         return PreflightCheck(name="model_selection", ok=True, detail=f"{provider_name}:{model_id}")
+
+    def blocking_configuration_failures(self, config: RunConfigSnapshot) -> list[PreflightCheck]:
+        """The checks that must stop a run, for any caller that can create one.
+
+        This is the single source of truth for "may this configuration execute?". The
+        preflight endpoint and the workflow-creation endpoint both call it, so the UI and the
+        API can never disagree about whether a configuration is startable.
+        """
+        failures: list[PreflightCheck] = []
+        provider_name = config.provider
+        if provider_name != "auto" and provider_name not in KNOWN_PROVIDERS:
+            # An unknown provider is a configuration error, not an exception: it must produce
+            # the same structured rejection as any other unstartable configuration.
+            return [
+                PreflightCheck(
+                    name="provider",
+                    ok=False,
+                    code="UNKNOWN_PROVIDER",
+                    detail=(
+                        f"unknown provider '{provider_name}'; expected one of "
+                        f"{', '.join(KNOWN_PROVIDERS)}"
+                    ),
+                )
+            ]
+        router = None if provider_name == "auto" else self._router(provider_name)
+        if config.mode == "live" and router is None:
+            # Report the provider once and stop: without a usable provider no model could be
+            # reached, so attributing this to a model would name the wrong culprit.
+            return [
+                PreflightCheck(
+                    name="provider",
+                    ok=False,
+                    code="PROVIDER_UNAVAILABLE",
+                    detail=(
+                        f"provider '{provider_name}' has no usable credential; sign in to a "
+                        "provider or switch the run to the scripted engine"
+                    ),
+                )
+            ]
+        for role, selection in config.role_models.items():
+            check = self.validate_model_selection(
+                selection,
+                provider=config.provider,
+                allow_unlisted=config.allow_unlisted_models,
+            )
+            if not check.ok and check.blocking:
+                failures.append(check.model_copy(update={"name": f"model:{role}"}))
+        return failures
 
     # -- preflight ------------------------------------------------------------ #
 
@@ -406,7 +478,11 @@ class ProviderService:
             )
 
         for role, selection in request.config.role_models.items():
-            check = self.validate_model_selection(selection, provider=request.config.provider)
+            check = self.validate_model_selection(
+                selection,
+                provider=request.config.provider,
+                allow_unlisted=request.config.allow_unlisted_models,
+            )
             checks.append(check.model_copy(update={"name": f"model:{role}"}))
 
         if request.deep and router is not None and mode == "live":

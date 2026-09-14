@@ -144,12 +144,17 @@ def test_an_unknown_scripted_scenario_is_rejected_at_creation(client: TestClient
     assert "unknown scripted scenario" in (run["run"]["failure_reason"] or "")
 
 
-def test_a_live_run_without_a_credential_fails_without_calling_a_model(
+def test_a_live_run_without_a_credential_is_refused_before_it_is_created(
     client: TestClient, project: dict[str, Any], source: dict[str, Any]
 ) -> None:
+    """A run that cannot execute must not exist at all.
+
+    This used to create the run and let it fail at execution, which spent a workspace, a
+    queue slot and the user's attention on a run whose outcome was already known. The
+    invariant the old test protected - no model call is attempted without a provider - is
+    now enforced earlier and more strictly: there is no run to call a model from.
+    """
     run = start_run(client, project_id=project["id"], source_id=source["id"], provider="commandcode")
-    # Force the live engine by rewriting the snapshot through the API surface that accepts
-    # it: create a run whose mode is live.
     response = client.post(
         "/api/v1/workflows",
         json={
@@ -159,12 +164,16 @@ def test_a_live_run_without_a_credential_fails_without_calling_a_model(
             "config": {"mode": "live", "provider": "commandcode"},
         },
     )
-    assert response.status_code == 201
-    detail = wait_for_terminal(client, response.json()["id"])
-    assert detail["run"]["status"] == "failed"
-    assert "no usable credential" in (detail["run"]["failure_reason"] or "")
-    assert detail["run"]["usage"].get("model_calls", 0) == 0, "no model call may be attempted without a provider"
-    assert run["id"] != response.json()["id"]
+    assert response.status_code == 409, response.text
+    body = response.json()
+    assert body["error"]["code"] == "invalid_configuration"
+    codes = {check.get("code") for check in body["error"]["detail"]["checks"]}
+    assert "PROVIDER_UNAVAILABLE" in codes, codes
+
+    runs = client.get("/api/v1/workflows").json()
+    runs = runs if isinstance(runs, list) else runs.get("runs", [])
+    assert all(item["id"] != response.headers.get("x-run-id") for item in runs)
+    assert run["id"] in {item["id"] for item in runs}, "the pre-existing scripted run is untouched"
 
 
 def test_cancelling_a_terminal_run_is_refused_with_a_reason(

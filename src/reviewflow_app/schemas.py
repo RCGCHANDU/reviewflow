@@ -127,6 +127,12 @@ class RunConfigSnapshot(BaseModel):
     reviewers: list[str] | None = None
     #: Scripted runs replay this evaluation scenario (deterministic, no model calls).
     scripted_scenario: str = "successful_end_to_end"
+    #: Explicit opt-in to run a model the provider catalogue does not list. Default-deny:
+    #: without this flag an unlisted model is a blocking preflight failure and the API
+    #: refuses to create the run, because silently executing an unusable model spends real
+    #: money and attributes output to a model that never ran. The flag is persisted in the
+    #: run's provider snapshot, so the exception is auditable after the fact.
+    allow_unlisted_models: bool = False
 
     @field_validator("role_models")
     @classmethod
@@ -174,6 +180,9 @@ class PreflightCheck(BaseModel):
     detail: str = ""
     #: True when this failure must stop the run, false when it is advisory.
     blocking: bool = True
+    #: Machine-readable reason for a failed check (``MODEL_UNAVAILABLE``, ...). Present so
+    #: callers never have to parse ``detail`` text to decide what to do next.
+    code: str | None = None
 
 
 class PreflightResult(BaseModel):

@@ -152,13 +152,17 @@ def test_preflight_rejects_a_malformed_model_selection(app_settings: Any) -> Non
     assert automatic.ok is True and automatic.detail == "auto routing"
 
 
-def test_an_unlisted_model_on_a_credentialed_provider_is_advisory(
+def test_an_unlisted_model_on_a_credentialed_provider_is_blocking_by_default(
     client: TestClient, app_settings: Any, tmp_path: Path
 ) -> None:
-    """A model we have not catalogued is a warning, not a blocker.
+    """A model we have not catalogued blocks the run unless the caller explicitly opts in.
 
-    An OpenAI-compatible gateway accepts ids the application has not seen, so refusing them
-    would be wrong more often than right - but the user is told it is unlisted.
+    This replaced an earlier advisory-only rule. The old rule was wrong for a reason that only
+    became visible in field testing: an unlisted model could pass preflight, leave Start
+    enabled, create a run, execute it, and spend real tokens before failing - while the run's
+    own records attributed its output to a model that never ran. An OpenAI-compatible gateway
+    does accept ids the application has not seen, so the exception is still available; it is
+    now an explicit, auditable opt-in rather than the default.
     """
     store = tmp_path / "codex" / "auth.json"
     store.parent.mkdir(parents=True, exist_ok=True)
@@ -166,9 +170,16 @@ def test_an_unlisted_model_on_a_credentialed_provider_is_advisory(
 
     service = ProviderService(app_settings)
     unlisted = service.validate_model_selection("codex:some-new-model", provider="codex")
-    assert unlisted.ok is True
-    assert unlisted.blocking is False
-    assert "not in the models reported" in unlisted.detail
+    assert unlisted.ok is False
+    assert unlisted.blocking is True
+    assert unlisted.code == "MODEL_UNAVAILABLE"
+    assert "not available" in unlisted.detail
+
+    # The escape hatch: explicit, and recorded rather than silent.
+    opted_in = service.validate_model_selection("codex:some-new-model", provider="codex", allow_unlisted=True)
+    assert opted_in.ok is True
+    assert opted_in.blocking is False
+    assert opted_in.code == "MODEL_UNLISTED_ALLOWED"
 
     # A model the router does know is accepted with no caveat. `blocking` describes whether
     # a failure of this check would stop the run: a deliberately selected model must be

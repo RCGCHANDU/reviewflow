@@ -17,7 +17,7 @@ from fastapi.responses import FileResponse, PlainTextResponse, StreamingResponse
 
 from reviewflow_app import schemas
 from reviewflow_app.api.deps import AppState, get_state
-from reviewflow_app.errors import AppError, NotFoundError, ValidationError
+from reviewflow_app.errors import AppError, InvalidConfigurationError, NotFoundError, ValidationError
 
 router = APIRouter(prefix="/api/v1", tags=["reviewflow"])
 
@@ -217,6 +217,19 @@ async def create_workflow(
     The response returns as soon as the run is durable; progress arrives over the event
     stream, never by holding this request open.
     """
+    # Authoritative gate: the backend rejects an unstartable configuration even if a client
+    # skipped preflight. Same rule as the preflight endpoint, so the two cannot disagree.
+    failures = state.provider_service.blocking_configuration_failures(payload.config)
+    if failures:
+        raise InvalidConfigurationError(
+            " ".join(check.detail for check in failures) or "the requested configuration cannot be executed",
+            detail={
+                "checks": [
+                    {"name": check.name, "code": check.code, "detail": check.detail} for check in failures
+                ]
+            },
+        )
+
     run = state.run_service.create(payload)
     recorder = _run_recorder(state, str(run["id"]))
     recorder.emit(
