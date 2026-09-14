@@ -420,7 +420,7 @@ export function RunDetail() {
                 flush
                 actions={<span className="tiny faint">{stream.events.length} events{stream.endReason ? ` · ${stream.endReason}` : ''}</span>}
               >
-                <EventLog events={stream.events} />
+                <EventLog events={stream.events} live={stream.state === 'open' && !terminal} />
               </Panel>
             </div>
           ) : null}

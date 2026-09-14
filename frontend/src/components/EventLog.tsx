@@ -89,7 +89,7 @@ function isTerminal(type: string): boolean {
   return type === 'workflow.terminal' || type.startsWith('workflow.') || type === 'guardrail.triggered'
 }
 
-export function EventLog({ events, follow: initialFollow = true }: { events: RunEvent[]; follow?: boolean }) {
+export function EventLog({ events, follow: initialFollow = true, live = false }: { events: RunEvent[]; follow?: boolean; live?: boolean }) {
   const container = useRef<HTMLDivElement>(null)
   const [follow, setFollow] = useState(initialFollow)
   const [family, setFamily] = useState<EventFamily>('all')
@@ -158,14 +158,19 @@ export function EventLog({ events, follow: initialFollow = true }: { events: Run
             <span className="tiny faint">{events.length} recorded events</span>
           </div>
         </div>
-        <button
-          type="button"
-          className={`activity-follow ${follow ? 'is-on' : ''}`}
-          aria-pressed={follow}
-          onClick={() => setFollow((value) => !value)}
-        >
-          <span aria-hidden="true">{follow ? '◉' : '○'}</span> {follow ? 'Following live' : 'Follow paused'}
-        </button>
+        <div className="activity-toolbar-actions">
+          <span className={`activity-connection ${live ? 'is-live' : 'is-history'}`}>
+            <span aria-hidden="true">{live ? '●' : '◌'}</span> {live ? 'Live stream' : 'Historical run'}
+          </span>
+          <button
+            type="button"
+            className={`activity-follow ${follow ? 'is-on' : ''}`}
+            aria-pressed={follow}
+            onClick={() => setFollow((value) => !value)}
+          >
+            <span aria-hidden="true">{follow ? '◉' : '○'}</span> {follow ? (live ? 'Following live' : 'Auto-follow') : 'Follow paused'}
+          </button>
+        </div>
       </div>
 
       {agents.length > 0 ? (
