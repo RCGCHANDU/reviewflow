@@ -1,7 +1,9 @@
+import { useEffect, useState } from 'react'
 import { NavLink, Outlet } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 
 import { api } from '../api/client'
+import { CommandPalette } from './CommandPalette'
 
 const NAV = [
   { to: '/', label: 'Dashboard', end: true },
@@ -23,6 +25,20 @@ export function Layout() {
 
   const running = health.data?.running_runs?.length ?? 0
   const providers = health.data?.providers_available ?? []
+  const [paletteOpen, setPaletteOpen] = useState(false)
+
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent) => {
+      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k') {
+        event.preventDefault()
+        setPaletteOpen((open) => !open)
+      } else if (event.key === 'Escape') {
+        setPaletteOpen(false)
+      }
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [])
 
   return (
     <div className="shell">
@@ -33,6 +49,10 @@ export function Layout() {
         <div className="brand">
           Review<span>Flow</span>
         </div>
+        <button type="button" className="side-search" onClick={() => setPaletteOpen(true)}>
+          <span>Search…</span>
+          <kbd>⌘K</kbd>
+        </button>
         <nav className="side-nav" aria-label="Main">
           {NAV.map((item) => (
             <NavLink key={item.to} to={item.to} end={item.end}>
@@ -48,13 +68,18 @@ export function Layout() {
             </span>
           ) : null}
           <span className="who" title="Model providers discovered on this machine">
-            {providers.length > 0 ? `providers · ${providers.join(', ')}` : 'no provider credentials'}
+            {health.isError
+              ? 'provider status unavailable'
+              : providers.length > 0
+                ? `providers · ${providers.join(', ')}`
+                : 'no provider credentials'}
           </span>
         </div>
       </aside>
       <main className="content" id="content" tabIndex={-1}>
         <Outlet />
       </main>
+      {paletteOpen ? <CommandPalette onClose={() => setPaletteOpen(false)} /> : null}
     </div>
   )
 }

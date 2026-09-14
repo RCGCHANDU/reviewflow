@@ -89,7 +89,7 @@ export function EventLog({ events, follow = true }: { events: RunEvent[]; follow
       {events.map((event) => (
         <div className={`event-row${event.type.startsWith('workflow.') ? ' terminal' : ''}`} key={event.seq}>
           <span className="seq">{event.seq}</span>
-          <span className="type">
+          <span className="type" title={event.type}>
             <span aria-hidden="true">{ICON[event.type] ?? '•'}</span> {event.type}
           </span>
           <span className="stage">{event.stage ? titleCase(event.stage) : ''}</span>

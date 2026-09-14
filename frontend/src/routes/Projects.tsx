@@ -71,7 +71,14 @@ export function Projects() {
         <Panel title="Projects">
           {projects.isLoading ? (
             <Loading />
-          ) : (projects.data ?? []).length === 0 ? (
+          ) : projects.isError ? (
+              <Notice tone="bad" title="Could not load projects">
+                This is not an empty workspace: the request failed.{' '}
+                <button type="button" className="linklike" onClick={() => void projects.refetch()}>
+                  Try again
+                </button>
+              </Notice>
+            ) : (projects.data ?? []).length === 0 ? (
             <EmptyState title="No projects yet">Create one on the right to upload source material.</EmptyState>
           ) : (
             <div className="scroll-x">
@@ -161,7 +168,7 @@ export function Projects() {
             {detail.isLoading ? (
               <Loading />
             ) : detail.isError ? (
-              <EmptyState title="Project not found">{String(detail.error)}</EmptyState>
+              <Notice tone="bad" title="Could not load project">The project and its sources could not be fetched.{' '}<button type="button" className="linklike" onClick={() => void detail.refetch()}>Try again</button></Notice>
             ) : (
               <>
                 <div style={{ padding: 14, borderBottom: '1px solid var(--border)' }}>
@@ -204,7 +211,14 @@ export function Projects() {
                   ) : null}
                 </div>
 
-                {detail.data && detail.data.sources.length === 0 ? (
+                {detail.isError ? (
+                  <Notice tone="bad" title="Could not load sources">
+                    This is not an empty project: the request failed.{' '}
+                    <button type="button" className="linklike" onClick={() => void queryClient.invalidateQueries({ queryKey: ['project', projectId] })}>
+                      Try again
+                    </button>
+                  </Notice>
+                ) : detail.data && detail.data.sources.length === 0 ? (
                   <EmptyState title="No sources yet">Upload a document or load a sample above.</EmptyState>
                 ) : (
                   <div className="scroll-x">

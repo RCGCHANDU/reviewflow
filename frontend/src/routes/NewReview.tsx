@@ -139,6 +139,13 @@ export function NewReview() {
           <Panel title="1. Source">
             {projects.isLoading ? (
               <Loading />
+            ) : projects.isError ? (
+              <Notice tone="bad" title="Could not load projects">
+                This is not an empty workspace: the request failed.{' '}
+                <button type="button" className="linklike" onClick={() => void projects.refetch()}>
+                  Try again
+                </button>
+              </Notice>
             ) : (projects.data ?? []).length === 0 ? (
               <EmptyState title="No projects yet">
                 <Link to="/projects">Create a project</Link> and upload material to review.

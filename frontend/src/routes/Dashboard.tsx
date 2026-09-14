@@ -2,7 +2,7 @@ import { Link } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 
 import { api } from '../api/client'
-import { EmptyState, Loading, Notice, Panel, RunStatusBadge } from '../components/Status'
+import { EmptyState, Notice, Panel, RunStatusBadge, Skeleton } from '../components/Status'
 import { formatDuration, formatNumber, relativeTime } from '../lib/format'
 
 const ATTENTION_STATUSES = ['blocked', 'degraded', 'failed']
@@ -137,6 +137,7 @@ export function Dashboard() {
         </div>
       ) : null}
 
+      <div className="dash-wrap">
       <div className="dash-grid">
         <Panel
           title="Recent activity"
@@ -148,7 +149,7 @@ export function Dashboard() {
           }
         >
           {runs.isLoading ? (
-            <Loading label="Loading runs…" />
+            <Skeleton rows={4} />
           ) : runs.isError ? (
             <EmptyState title="Run history unavailable">
               The request for runs failed. This is not an empty history — reload or try again above.
@@ -254,6 +255,7 @@ export function Dashboard() {
             </div>
           </Panel>
         </div>
+      </div>
       </div>
     </>
   )

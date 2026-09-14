@@ -175,7 +175,9 @@ describe('RunDetail', () => {
 
     renderWithProviders(<RunDetail />, { route: '/runs/run_demo', path: '/runs/:runId' })
 
-    expect(await screen.findByText('Blocked')).toBeInTheDocument()
+    // Scoped to the run-level status badge: stage rows now state their own state in words
+    // (a blocked stage reads "Blocked" too), so an unscoped query matches several elements.
+    expect(await screen.findByText('Blocked', { selector: '[data-status] .badge' })).toBeInTheDocument()
     // Terminal states are not collapsed: a blocked run is never labelled a success.
     expect(screen.queryByText('Succeeded')).not.toBeInTheDocument()
     expect(screen.getByText(/verification still refused to pass/)).toBeInTheDocument()

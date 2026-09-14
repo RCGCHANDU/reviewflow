@@ -71,6 +71,9 @@ export function StageTimeline({
             <div>
               <div className="stage-name">
                 {titleCase(stage.stage)} {showAgents ? <span className="faint tiny">({agents.length} agents)</span> : null}
+                {/* A8-06: the state was a colour plus an aria-hidden glyph. The word makes it
+                    readable without colour and visible to assistive technology. */}
+                <StageStateBadge state={stage.state} />
               </div>
               <div className="stage-detail">{summarise(stage.detail)}</div>
               {showAgents ? (
