@@ -782,10 +782,23 @@ class RunService:
         elif status == "degraded":
             base = "The gates passed, but reviewer coverage was incomplete, so the result is reported as degraded rather than successful."
         elif status == "blocked":
-            base = (
-                f"The workflow used all {rounds} revision round(s) and verification still refused to pass"
-                + (f": {', '.join(str(item) for item in failing)}." if failing else ".")
-            )
+            if failing:
+                base = (
+                    f"The workflow used all {rounds} revision round(s) and verification still refused to pass"
+                    f": {', '.join(str(item) for item in failing)}."
+                )
+            else:
+                # A blocked run with no failing check was stopped by a different gate. Claiming
+                # "verification refused to pass" here was false, and it read as a contradiction
+                # next to the adversarial note printed beside it.
+                reason = str(terminal.get("reason") or "").strip().rstrip(".") or "a required gate refused to pass"
+                if rounds:
+                    base = (
+                        f"The workflow used all {rounds} revision round(s). Every mandatory "
+                        f"verification check passed, but the run was blocked: {reason}."
+                    )
+                else:
+                    base = f"Every mandatory verification check passed, but the run was blocked: {reason}."
         elif status == "cancelled":
             base = "The run was cancelled; stages still in flight were stopped and nothing further was scheduled."
         elif status == "failed":

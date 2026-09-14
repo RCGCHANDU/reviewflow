@@ -65,7 +65,7 @@ export const RUN_STATUS_MEANING: Record<RunStatus, string> = {
   running: 'Stages are executing; evidence appears as each one reports.',
   succeeded: 'Every mandatory verification check passed.',
   degraded: 'Gates passed, but reviewer coverage was incomplete.',
-  blocked: 'The revision loop ended with verification still failing.',
+  blocked: 'A gate refused to pass this run.',
   failed: 'No result could be established.',
   cancelled: 'Stopped at the user’s request; this is not a failure.',
 }

@@ -11,7 +11,14 @@ describe('status vocabulary', () => {
     const terminal = ['succeeded', 'degraded', 'blocked', 'failed', 'cancelled'] as const
     const labels = terminal.map((status) => RUN_STATUS_LABEL[status])
     expect(new Set(labels).size).toBe(labels.length)
-    expect(RUN_STATUS_MEANING.blocked).toContain('verification')
+    // A blocked run must not blame verification. The gate that refused can be the
+    // adversarial reviewer (measured: 14/14 checks passed, blocked with "adversarial
+    // reviewer rejected every attempt"), so the cause belongs in the run's own
+    // explanation; this status-level phrase must stay cause-neutral and must never
+    // read as success.
+    expect(RUN_STATUS_MEANING.blocked).not.toContain('verification')
+    expect(RUN_STATUS_MEANING.blocked).toContain('refused')
+    expect(new Set(terminal.map((status) => RUN_STATUS_MEANING[status])).size).toBe(terminal.length)
     expect(RUN_STATUS_MEANING.degraded).toContain('coverage')
     expect(RUN_STATUS_MEANING.cancelled).toContain('not a failure')
     terminal.forEach((status) => expect(isTerminal(status)).toBe(true))

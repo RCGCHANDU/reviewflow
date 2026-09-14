@@ -247,6 +247,11 @@ export function RunDetail() {
             <span className="decision-fail"> · {criticalUnresolved} critical</span>
           ) : null}
         </span>
+        {run.status === 'blocked' && (data?.terminal?.reason ?? run.failure_reason) ? (
+          <span className="decision-fail">
+            blocked: {String(data?.terminal?.reason ?? run.failure_reason).replace(/\.$/, '')}
+          </span>
+        ) : null}
         <button type="button" className="button primary" onClick={() => setTab('result')}>
           See the decision →
         </button>
