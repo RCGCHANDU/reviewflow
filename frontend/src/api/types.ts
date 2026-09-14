@@ -26,6 +26,7 @@ export type StageStateName =
   | 'blocked'
   | 'failed'
   | 'skipped'
+  | 'retried'
 
 export interface Project {
   id: string

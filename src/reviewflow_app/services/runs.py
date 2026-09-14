@@ -636,7 +636,7 @@ class RunService:
                     "warning": "warning",
                     "failed": "failed",
                     "invalid_output": "failed",
-                    "retried": "warning",
+                    "retried": "retried",
                 }
                 states[event.stage].state = outcome_states.get(outcome, "completed")
                 states[event.stage].finished_at = event.timestamp
@@ -681,7 +681,20 @@ class RunService:
 
         timeline = [states[stage] for stage in STAGE_ORDER]
         if seen_revise:
-            timeline.append(StageState(stage="revise", state="completed", detail={"rounds": "bounded revision loop"}))
+            # The revision loop runs between VERIFY and the next SYNTHESIZE, so the row
+            # belongs before FINAL_REVIEW, not after it, and it states the rounds that
+            # actually ran rather than a constant phrase.
+            rounds = int((run or {}).get("revision_round") or 0)
+            summary = (
+                f"{rounds} revision round{'s' if rounds != 1 else ''} executed"
+                if rounds
+                else "revision loop entered"
+            )
+            insert_at = timeline.index(states["final_review"]) if "final_review" in states else len(timeline)
+            timeline.insert(
+                insert_at,
+                StageState(stage="revise", state="completed", detail={"rounds": summary}),
+            )
         if run and run.get("status") in TERMINAL_STATUSES:
             # A terminal run cannot still have a stage in flight: the stage was interrupted
             # (cancellation, or a stage that never started because a gate stopped the run).
@@ -689,6 +702,12 @@ class RunService:
             for entry in timeline:
                 if entry.state == "running":
                     entry.state = "skipped" if entry.stage != "verify" else "warning"
+            # "pending" on a finished run reads as work still to come. It is not: the run
+            # ended and this stage will never execute.
+            for entry in timeline:
+                if entry.state == "pending":
+                    entry.state = "skipped"
+                    entry.detail = {**entry.detail, "skipped": "run ended before this stage"}
         return timeline
 
     def inspect(self, run_id: str) -> RunInspection:

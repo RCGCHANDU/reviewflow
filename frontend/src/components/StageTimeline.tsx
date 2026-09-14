@@ -33,6 +33,7 @@ function summarise(detail: Record<string, unknown>): string {
 }
 
 const STATE_MARK: Record<string, string> = {
+  retried: '↻',
   pending: '·',
   running: '▶',
   completed: '✓',

@@ -77,6 +77,7 @@ export const STAGE_STATE_LABEL: Record<StageStateName, string> = {
   warning: 'Degraded',
   blocked: 'Blocked',
   failed: 'Failed',
+  retried: 'Retried',
   skipped: 'Skipped',
 }
 

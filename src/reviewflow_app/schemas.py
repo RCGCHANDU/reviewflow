@@ -222,7 +222,9 @@ class WorkflowRunSummary(BaseModel):
 
 #: The states a stage can be in. Named so the workflow service can build them without
 #: repeating the literal, which is what keeps the timeline and the contract in step.
-StageStateName = Literal["pending", "running", "completed", "warning", "blocked", "failed", "skipped"]
+StageStateName = Literal[
+    "pending", "running", "completed", "warning", "blocked", "failed", "skipped", "retried"
+]
 
 
 class StageState(BaseModel):

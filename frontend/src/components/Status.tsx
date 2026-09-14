@@ -29,6 +29,7 @@ const STAGE_TONE: Record<StageStateName, Tone> = {
   warning: 'warn',
   blocked: 'bad',
   failed: 'bad',
+  retried: 'info',
   skipped: 'neutral',
 }
 
