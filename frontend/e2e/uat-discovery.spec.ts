@@ -4,7 +4,8 @@
  * Records what a user actually sees on every screen, with no reference to the implementation.
  * The output is the raw material for the persona/terminology/friction analysis.
  */
-import { test, expect } from '@playwright/test'
+import { test } from '@playwright/test'
+import type { Page } from '@playwright/test'
 import fs from 'node:fs/promises'
 import path from 'node:path'
 
@@ -21,7 +22,7 @@ type Screen = {
   visible_controls: number
 }
 
-async function dump(page: import('@playwright/test').Page, route: string, label: string): Promise<Screen> {
+async function dump(page: Page, route: string, label: string): Promise<Screen> {
   await page.goto(route, { waitUntil: 'networkidle' })
   await page.waitForTimeout(300)
   const headings = await page.locator('h1, h2, h3').allInnerTexts()
@@ -55,7 +56,7 @@ async function dump(page: import('@playwright/test').Page, route: string, label:
 
 const BASE_URL = 'http://127.0.0.1:8012'
 
-async function createRun(page: import('@playwright/test').Page, scenario: string, name: string): Promise<string> {
+async function createRun(page: Page, scenario: string, name: string): Promise<string> {
   const project = await (
     await page.request.post(`${BASE_URL}/api/v1/projects`, {
       data: { name, description: 'UAT discovery', default_objective: 'UAT discovery run.' },
@@ -72,7 +73,7 @@ async function createRun(page: import('@playwright/test').Page, scenario: string
   return run.id as string
 }
 
-async function settle(page: import('@playwright/test').Page, runId: string): Promise<string> {
+async function settle(page: Page, runId: string): Promise<string> {
   let status = ''
   for (let i = 0; i < 80; i++) {
     status = (await (await page.request.get(`${BASE_URL}/api/v1/workflows/${runId}`)).json()).run.status

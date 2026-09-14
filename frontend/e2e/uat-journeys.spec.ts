@@ -6,6 +6,7 @@
  * Result tab, and the interaction cost of reaching a defensible decision.
  */
 import { test } from '@playwright/test'
+import type { Page } from '@playwright/test'
 import fs from 'node:fs/promises'
 import path from 'node:path'
 
@@ -35,7 +36,7 @@ const JOURNEYS: Journey[] = [
   { id: 'J10', name: 'First-time user', user_goal: 'Start a review with no documentation and no training', expect_note: 'startable without internal knowledge' },
 ]
 
-async function makeRun(page: import('@playwright/test').Page, journey: Journey) {
+async function makeRun(page: Page, journey: Journey) {
   const project = await (
     await page.request.post(`${BASE}/api/v1/projects`, {
       data: { name: `UAT ${journey.id} ${journey.name}`, description: `Journey ${journey.id}`, default_objective: journey.user_goal },
@@ -74,7 +75,7 @@ async function makeRun(page: import('@playwright/test').Page, journey: Journey) 
   return run.id as string
 }
 
-async function settle(page: import('@playwright/test').Page, runId: string) {
+async function settle(page: Page, runId: string) {
   for (let i = 0; i < 90; i++) {
     const payload = await (await page.request.get(`${BASE}/api/v1/workflows/${runId}`)).json()
     if (!['running', 'queued', 'pending'].includes(payload.run.status)) return payload

@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
-import { screen, waitFor, within } from '@testing-library/react'
+import { act, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 
 import { RunDetail } from './RunDetail'
@@ -135,9 +135,11 @@ describe('RunDetail', () => {
     // `role_key` on agent.started, while the ledger's agent_call event reports `agent_role`.
     // An earlier version of this fixture used `agent_role` for both, which made the mock
     // agree with the frontend and hid a real defect from the browser run.
-    source?.emitRunEvent(3, 'agent.started', { role_key: 'evidence_auditor', model: 'gpt-5.6-luna' }, 'parallel_review')
-    source?.emitRunEvent(4, 'agent.started', { role_key: 'structure_reviewer', model: 'gpt-5.6-luna' }, 'parallel_review')
-    source?.emitRunEvent(5, 'agent.completed', { agent_role: 'evidence_auditor', latency_ms: 3200 }, 'parallel_review')
+    act(() => {
+      source?.emitRunEvent(3, 'agent.started', { role_key: 'evidence_auditor', model: 'gpt-5.6-luna' }, 'parallel_review')
+      source?.emitRunEvent(4, 'agent.started', { role_key: 'structure_reviewer', model: 'gpt-5.6-luna' }, 'parallel_review')
+      source?.emitRunEvent(5, 'agent.completed', { agent_role: 'evidence_auditor', latency_ms: 3200 }, 'parallel_review')
+    })
 
     await waitFor(() => expect(screen.getAllByText('Evidence Auditor').length).toBeGreaterThan(0))
     const running = document.querySelectorAll('.timeline .agent-row')
@@ -259,8 +261,10 @@ describe('RunDetail', () => {
     await screen.findByText(/Identify unsupported claims/)
 
     const source = MockEventSource.latest()
-    source?.emitRunEvent(9, 'workflow.failed', { status: 'failed', reason: 'provider rejected the model', rounds: 0 })
-    source?.emit('stream.end', { status: 'failed', reason: 'run finished' }, '10')
+    act(() => {
+      source?.emitRunEvent(9, 'workflow.failed', { status: 'failed', reason: 'provider rejected the model', rounds: 0 })
+      source?.emit('stream.end', { status: 'failed', reason: 'run finished' }, '10')
+    })
 
     await waitFor(() => expect(screen.getByText(/run finished/)).toBeInTheDocument())
   })
