@@ -1,6 +1,6 @@
 # reviewflow
 
-A production-oriented multi-agent review framework built on the **OpenAI Agents SDK for Python**.
+A production-oriented multi-agent peer review framework built on the **OpenAI Agents SDK for Python**.
 
 It runs a rigorous pipeline over a knowledge-work artifact:
 
